@@ -3,7 +3,7 @@ name: tiendah2r
 url: https://tiendah2r.com
 sector: Repuestos para motos
 status: En producción
-fits: [repuestos_autopartes, restaurantes_comercio]
+fits: [repuestos_autopartes, comercio]
 ---
 
 # tiendah2r.com: de un catálogo con terceros a software propio

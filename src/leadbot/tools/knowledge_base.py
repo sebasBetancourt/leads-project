@@ -27,7 +27,7 @@ def load_case_studies(knowledge_dir: Path = KNOWLEDGE_DIR) -> list[CaseStudy]:
 
 
 class KnowledgeArgs(BaseModel):
-    sector: str | None = Field(None, description="Clave de sector (ej. restaurantes_comercio)")
+    sector: str | None = Field(None, description="Clave de sector (ej. comercio)")
 
 
 class KnowledgeBaseTool(Tool):

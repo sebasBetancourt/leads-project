@@ -1,24 +1,36 @@
 # Ciudades de Colombia por prioridad (1 = primero). discovery recorre por prioridad
 # y, dentro de cada una, por sector. Desactiva una ciudad con enabled: false.
+#
+# Arranque: solo Santander. El resto del país queda listo; actívalo cambiando enabled a true.
 
 cities:
-  - { name: Bogotá,        department: Cundinamarca,       priority: 1, enabled: true }
-  - { name: Medellín,      department: Antioquia,          priority: 1, enabled: true }
-  - { name: Cali,          department: Valle del Cauca,    priority: 1, enabled: true }
-  - { name: Barranquilla,  department: Atlántico,          priority: 1, enabled: true }
-  - { name: Bucaramanga,   department: Santander,          priority: 2, enabled: true }
-  - { name: Cartagena,     department: Bolívar,            priority: 2, enabled: true }
-  - { name: Pereira,       department: Risaralda,          priority: 2, enabled: true }
-  - { name: Manizales,     department: Caldas,             priority: 2, enabled: true }
-  - { name: Cúcuta,        department: Norte de Santander, priority: 2, enabled: true }
-  - { name: Ibagué,        department: Tolima,             priority: 3, enabled: true }
-  - { name: Villavicencio, department: Meta,               priority: 3, enabled: true }
-  - { name: Santa Marta,   department: Magdalena,          priority: 3, enabled: true }
-  - { name: Armenia,       department: Quindío,            priority: 3, enabled: true }
-  - { name: Pasto,         department: Nariño,             priority: 3, enabled: true }
-  - { name: Neiva,         department: Huila,              priority: 3, enabled: true }
-  - { name: Montería,      department: Córdoba,            priority: 3, enabled: true }
-  - { name: Popayán,       department: Cauca,              priority: 3, enabled: true }
-  - { name: Tunja,         department: Boyacá,             priority: 3, enabled: true }
-  - { name: Valledupar,    department: Cesar,              priority: 3, enabled: true }
-  - { name: Sincelejo,     department: Sucre,              priority: 3, enabled: true }
+  # --- Santander: área metropolitana de Bucaramanga ---
+  - { name: Bucaramanga,     department: Santander,          priority: 1, enabled: true }
+  - { name: Floridablanca,   department: Santander,          priority: 1, enabled: true }
+  - { name: Girón,           department: Santander,          priority: 1, enabled: true }
+  - { name: Piedecuesta,     department: Santander,          priority: 1, enabled: true }
+  # --- Santander: resto del departamento ---
+  - { name: Barrancabermeja, department: Santander,          priority: 2, enabled: true }
+  - { name: San Gil,         department: Santander,          priority: 2, enabled: true }
+  - { name: Socorro,         department: Santander,          priority: 2, enabled: true }
+
+  # --- Resto de Colombia (después de Santander) ---
+  - { name: Bogotá,        department: Cundinamarca,       priority: 3, enabled: false }
+  - { name: Medellín,      department: Antioquia,          priority: 3, enabled: false }
+  - { name: Cali,          department: Valle del Cauca,    priority: 3, enabled: false }
+  - { name: Barranquilla,  department: Atlántico,          priority: 3, enabled: false }
+  - { name: Cúcuta,        department: Norte de Santander, priority: 3, enabled: false }
+  - { name: Cartagena,     department: Bolívar,            priority: 4, enabled: false }
+  - { name: Pereira,       department: Risaralda,          priority: 4, enabled: false }
+  - { name: Manizales,     department: Caldas,             priority: 4, enabled: false }
+  - { name: Ibagué,        department: Tolima,             priority: 5, enabled: false }
+  - { name: Villavicencio, department: Meta,               priority: 5, enabled: false }
+  - { name: Santa Marta,   department: Magdalena,          priority: 5, enabled: false }
+  - { name: Armenia,       department: Quindío,            priority: 5, enabled: false }
+  - { name: Pasto,         department: Nariño,             priority: 5, enabled: false }
+  - { name: Neiva,         department: Huila,              priority: 5, enabled: false }
+  - { name: Montería,      department: Córdoba,            priority: 5, enabled: false }
+  - { name: Popayán,       department: Cauca,              priority: 5, enabled: false }
+  - { name: Tunja,         department: Boyacá,             priority: 5, enabled: false }
+  - { name: Valledupar,    department: Cesar,              priority: 5, enabled: false }
+  - { name: Sincelejo,     department: Sucre,              priority: 5, enabled: false }

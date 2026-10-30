@@ -5,15 +5,28 @@
 # - offer: qué le proponemos a ese sector.
 # - case_studies: casos de knowledge/case_studies/ que mejor encajan (por nombre de archivo).
 #
-# Nota: los 3 casos actuales son e-commerce de productos. Los sectores con
-# servicios (logística, educación) encajan menos y el agente debe ser más exigente al calificarlos.
+# Arranque: solo los sectores parecidos a los 3 casos (tiendah2r, tiendamotek, luxtimee).
+# Los de servicios (logística, educación) encajan menos: quedan apagados hasta tener casos de ese tipo.
 
 sectors:
-  restaurantes_comercio:
+  repuestos_autopartes:
     enabled: true
-    label: Restaurantes y comercio
+    label: Repuestos y autopartes
     terms:
-      - restaurantes
+      - repuestos para motos
+      - autopartes
+      - lubricantes y llantas
+    pains:
+      - Catálogo dependiente de un tercero
+      - Clientes preguntan por compatibilidad por WhatsApp
+      - Vende solo en el local o por WhatsApp, sin tienda en línea
+    offer: Tienda a medida con búsqueda por categorías y compatibilidad
+    case_studies: [tiendah2r, tiendamotek]
+
+  comercio:
+    enabled: true
+    label: Comercio minorista
+    terms:
       - tiendas de ropa
       - ferreterías
       - tiendas de tecnología
@@ -21,13 +34,26 @@ sectors:
     pains:
       - Vende solo por WhatsApp o Instagram, sin tienda propia
       - Catálogo en PDF o en fotos sueltas
-      - Paga comisiones a plataformas de domicilios o marketplaces
+      - Paga comisiones a marketplaces o a una plataforma de terceros
       - No controla inventario en tiempo real
     offer: Tienda en línea a medida con catálogo, pagos e inventario conectados
     case_studies: [tiendamotek, tiendah2r]
 
-  servicios_logistica:
+  joyeria_relojeria:
     enabled: true
+    label: Joyería y relojería
+    terms:
+      - relojerías
+      - joyerías
+    pains:
+      - Catálogo en PDF
+      - Sin métricas de ventas por producto
+    offer: Software a medida con catálogo digital y métricas de venta
+    case_studies: [luxtimee]
+
+  # --- Apagados: no hay un caso de éxito parecido todavía. ---
+  servicios_logistica:
+    enabled: false
     label: Servicios y logística
     terms:
       - transportadoras
@@ -43,7 +69,7 @@ sectors:
     case_studies: [luxtimee]
 
   educacion:
-    enabled: true
+    enabled: false
     label: Educación
     terms:
       - academias
@@ -55,30 +81,4 @@ sectors:
       - Venta de cursos sin plataforma propia
       - Datos de estudiantes en hojas de cálculo
     offer: Plataforma a medida para matrículas, pagos y venta de cursos
-    case_studies: [luxtimee]
-
-  # --- Desactivados: encajan directo con los casos actuales. Actívalos si quieres. ---
-  repuestos_autopartes:
-    enabled: false
-    label: Repuestos y autopartes
-    terms:
-      - repuestos para motos
-      - autopartes
-      - lubricantes y llantas
-    pains:
-      - Catálogo dependiente de un tercero
-      - Clientes preguntan por compatibilidad por WhatsApp
-    offer: Tienda a medida con búsqueda por categorías y compatibilidad
-    case_studies: [tiendah2r, tiendamotek]
-
-  joyeria_relojeria:
-    enabled: false
-    label: Joyería y relojería
-    terms:
-      - relojerías
-      - joyerías
-    pains:
-      - Catálogo en PDF
-      - Sin métricas de ventas por producto
-    offer: Software a medida con catálogo digital y métricas de venta
     case_studies: [luxtimee]

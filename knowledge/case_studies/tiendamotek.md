@@ -3,7 +3,7 @@ name: tiendamotek
 url: https://tiendamotek.com
 sector: Repuestos para motos
 status: En producción
-fits: [repuestos_autopartes, restaurantes_comercio]
+fits: [repuestos_autopartes, comercio]
 ---
 
 # tiendamotek.com: una tienda nueva, digital desde el primer día
