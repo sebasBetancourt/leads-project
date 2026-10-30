@@ -21,6 +21,7 @@ dependencies = [
     # IA
     "litellm>=1.50",
     "langgraph>=0.2",
+    "ddgs>=9.0",  # búsqueda web del agente (DuckDuckGo, sin key)
     # Interfaz MVP
     "gspread>=6.1",
     # Propuestas y scheduler
