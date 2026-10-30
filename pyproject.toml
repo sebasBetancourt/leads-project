@@ -45,7 +45,7 @@ packages = ["src/leadbot"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "tests"]
 
 [tool.ruff]
 line-length = 120
@@ -55,3 +55,7 @@ extend-exclude = ["migrations/versions"]  # generadas por Alembic
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 ignore = ["B008"]  # typer.Option en defaults es el idioma de Typer
+
+[tool.ruff.lint.isort]
+known-first-party = ["leadbot"]
+known-local-folder = ["fakes"]  # tests/fakes.py
