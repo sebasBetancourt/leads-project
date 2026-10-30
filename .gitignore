@@ -1,0 +1,12 @@
+# Secretos
+  .env
+  .env.*
+  !.env.example
+
+  # Datos de leads (información personal, no subir)
+  data/
+  *.csv
+  *.xlsx
+
+  # Node / Python
+  node_modules/   
