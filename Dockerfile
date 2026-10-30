@@ -14,6 +14,7 @@ RUN uv sync --no-dev
 
 COPY config ./config
 COPY knowledge ./knowledge
+COPY alembic.ini ./
 COPY migrations ./migrations
 
 CMD ["leadbot", "--help"]
