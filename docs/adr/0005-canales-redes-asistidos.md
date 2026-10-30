@@ -14,7 +14,8 @@ bloqueo de la cuenta. El dueño ya aprueba cada mensaje a mano antes de que salg
   - Instagram: `https://ig.me/m/<usuario>`; el mensaje se pega.
   - Facebook: `https://m.me/<página>` (o la página si no tiene usuario); el mensaje se pega.
   - LinkedIn: el perfil o la página de la empresa; el mensaje se pega.
-- El dueño da clic, envía y marca **ENVIADO** en la columna Decisión. `sheets.pull_decisions` lo pasa a `SENT`.
+- El dueño da clic, envía y marca **ENVIADO** en la columna Decisión. `sheets.pull_decisions` lo pasa a `SENT` (F4;
+  en F2 la columna acepta APROBADO, REHACER y DESCARTAR, ver ADR 0006).
 - `config/limits.yaml` sigue aplicando: limita cuántos mensajes por canal aparecen por día en Sheets.
 - **El email es el único canal con envío automático** (Gmail SMTP, ver F3), también después de aprobar.
 

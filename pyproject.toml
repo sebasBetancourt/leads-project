@@ -21,8 +21,10 @@ dependencies = [
     # IA
     "litellm>=1.50",
     "langgraph>=0.2",
+    "ddgs>=9.0",  # búsqueda web del agente (DuckDuckGo, sin key)
     # Interfaz MVP
     "gspread>=6.1",
+    "openpyxl>=3.1",  # leadbot import-xlsx
     # Propuestas y scheduler
     "jinja2>=3.1",
     "apscheduler>=3.10,<4",
@@ -45,7 +47,7 @@ packages = ["src/leadbot"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "tests"]
 
 [tool.ruff]
 line-length = 120
@@ -55,3 +57,7 @@ extend-exclude = ["migrations/versions"]  # generadas por Alembic
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 ignore = ["B008"]  # typer.Option en defaults es el idioma de Typer
+
+[tool.ruff.lint.isort]
+known-first-party = ["leadbot"]
+known-local-folder = ["fakes"]  # tests/fakes.py

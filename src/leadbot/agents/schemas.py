@@ -1,4 +1,8 @@
-"""Salidas estructuradas del LLM (patrón structured_outputs.py de kaymen99). Todo se valida con Pydantic."""
+"""Salidas estructuradas del LLM (patrón structured_outputs.py de kaymen99). Todo se valida con Pydantic.
+
+Sin valores por defecto: la salida estructurada estricta (Groq, OpenAI) exige que todo campo sea
+obligatorio; lo opcional se declara `X | None` sin default.
+"""
 
 from pydantic import BaseModel, Field
 
@@ -27,6 +31,7 @@ class LeadQualification(BaseModel):
 
 
 class DraftedMessage(BaseModel):
-    channel: Channel
-    subject: str | None = Field(None, description="Solo para email")
-    body: str
+    """Texto de un mensaje para un canal (el canal y el destinatario los pone el código)."""
+
+    subject: str | None = Field(description="Asunto, solo para email; null en redes")
+    body: str = Field(description="Cuerpo del mensaje, listo para enviar")

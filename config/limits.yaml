@@ -42,3 +42,17 @@ sequences:
 
 # Un mismo negocio no recibe mensajes por más de este número de canales en total.
 max_channels_per_lead: 2
+
+# Agente de IA (agents/). Un lead califica si score >= min_score y tiene algún canal disponible.
+agent:
+  min_score: 60
+  # Texto máximo que se le pasa al modelo por fuente de investigación (es contexto pagado).
+  website_chars: 4000
+  shop_page_chars: 2000
+  search_results: 5
+  # Largo máximo del cuerpo por canal (agents/checks.py); LinkedIn usa channels.linkedin.max_message_chars.
+  max_body_chars:
+    email: 1200
+    whatsapp: 700
+    instagram: 700
+    facebook: 700

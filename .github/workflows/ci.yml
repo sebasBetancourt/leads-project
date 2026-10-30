@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: leadbot
+          POSTGRES_DB: leadbot_test
+          # Base desechable del job: sin contraseña, así no hay credenciales en el repo.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U leadbot -d leadbot_test"
+          --health-interval 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://leadbot@127.0.0.1:5432/leadbot_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --extra dev --locked
+      - run: uv run ruff check src tests
+      - run: uv run pytest -q
+      # Las migraciones también bajan: se prueba el downgrade y se vuelve a subir.
+      - run: |
+          uv run alembic downgrade base
+          uv run alembic upgrade head
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
