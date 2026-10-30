@@ -16,7 +16,7 @@ dependencies = [
     "alembic>=1.13",
     # Discovery / enrichment
     "httpx>=0.27",
-    "selectolax>=0.3",
+    "selectolax>=1.0",  # backend lexbor
     "phonenumbers>=8.13",
     # IA
     "litellm>=1.50",
@@ -29,8 +29,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# F4: WhatsApp Web, Instagram, Facebook, LinkedIn
-social = ["playwright>=1.47"]
 # F5: propuesta en PDF
 pdf = ["weasyprint>=62"]
 dev = ["pytest>=8.3", "ruff>=0.6"]
@@ -52,6 +50,7 @@ pythonpath = ["src"]
 [tool.ruff]
 line-length = 120
 target-version = "py312"
+extend-exclude = ["migrations/versions"]  # generadas por Alembic
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
