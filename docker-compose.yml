@@ -28,7 +28,7 @@ services:
       - gmaps-playwright-cache:/opt
 
   # Scheduler: discovery, enrichment, agente, sync con Sheets, envío de email.
-  # Los canales de redes (F4) corren en tu máquina, no aquí: ver docs/adr/0005.
+  # Las redes (WhatsApp, Instagram, Facebook, LinkedIn) son asistidas: no se envía nada desde aquí (docs/adr/0005).
   worker:
     build: .
     restart: unless-stopped

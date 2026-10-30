@@ -7,16 +7,21 @@ Estado: **aprobada** (2026-10-30). Las decisiones de fondo están en [`adr/`](ad
 Encontrar negocios en toda Colombia que se beneficiarían de una tienda en línea o un software a
 medida, investigarlos con IA, redactar un mensaje personalizado con el caso de éxito más
 parecido, y enviarlo por email, WhatsApp, Instagram, Facebook o LinkedIn, **siempre con
-aprobación humana antes de enviar**.
+aprobación humana antes de enviar**. El email sale solo; las redes son **asistidas** (el sistema
+abre el chat con el mensaje listo y el dueño da el clic).
+
+Arranque: Santander (área metropolitana de Bucaramanga primero) y los sectores parecidos a los
+3 casos de éxito: repuestos y autopartes, comercio minorista, joyería y relojería.
 
 ## 2. Principios
 
 1. **Postgres es la fuente de verdad.** Google Sheets es solo la vista y el lugar de aprobación.
 2. **Nada sale sin aprobación.** Todo mensaje pasa por `PENDING_APPROVAL` en Sheets.
-3. **Todo envío pasa por guardrails**: horario, tope diario, pausa por canal y lista de no contactar.
-4. **Cada etapa corre sola y se puede reintentar** (`leadbot discover`, `enrich`, `qualify`...).
-5. **Proveedores intercambiables**: el LLM (LiteLLM), los canales (adaptadores) y la búsqueda web (tools).
-6. **No reinventar**: Google Maps lo resuelve gosom; nosotros orquestamos.
+3. **Ningún bot escribe desde tus redes.** WhatsApp, Instagram, Facebook y LinkedIn son asistidos (ADR 0005).
+4. **Todo envío pasa por guardrails**: horario, tope diario, pausa por canal y lista de no contactar.
+5. **Cada etapa corre sola y se puede reintentar** (`leadbot discover`, `enrich`, `qualify`...).
+6. **Proveedores intercambiables**: el LLM (LiteLLM), los canales (adaptadores) y la búsqueda web (tools).
+7. **No reinventar**: Google Maps lo resuelve gosom; nosotros orquestamos.
 
 ## 3. Flujo
 
@@ -35,9 +40,10 @@ aprobación humana antes de enviar**.
             ▼
  [4] APROBACIÓN  sheets/         pestaña "Aprobación": editas, marcas APROBADO / RECHAZADO
             ▼
- [5] OUTREACH    outreach/       cola (SKIP LOCKED) ─► guardrails ─► adaptador del canal
-       ├─ email_gmail       (Docker, F3)
-       └─ whatsapp_web · instagram · facebook · linkedin   (tu máquina, Playwright, F4)
+ [5] OUTREACH    outreach/       guardrails (horario, tope diario, no contactar)
+       ├─ email: cola (SKIP LOCKED) ─► email_gmail, envío automático (F3)
+       └─ redes: channels/assisted.py arma el enlace del chat en Sheets ─► tú das clic,
+                 envías y marcas ENVIADO (F4)
             ▼
  [6] RESPUESTAS  email: IMAP automático · redes: las marcas en Sheets ─► REPLIED / MEETING / WON / LOST / OPT_OUT
             ▼
@@ -50,7 +56,7 @@ aprobación humana antes de enviar**.
 |---|---|---|---|
 | `core/` | Settings (.env), YAML, conexión a Postgres, puerta única al LLM, logging | — | AgentSDR (`db.ts` único, `ai/` único) |
 | `leads/` | Modelo de datos, máquina de estados, repositorio | `core` | kaymen99 (`LeadLoaderBase`) |
-| `discovery/` | Armar búsquedas y hablar con gosom | `core`, `leads` | gosom (servicio) |
+| `discovery/` | Armar búsquedas y hablar con gosom | `core`, `leads`, `enrichment.phone` | gosom (servicio) |
 | `enrichment/` | Visitar webs, extraer contactos, normalizar teléfonos +57 | `core`, `leads` | fujiwarachoki/leadgen |
 | `tools/` | Herramientas que el agente decide usar: `knowledge_base`, `web_reader`, `web_search` | `core`, `enrichment` | kaymen99 (`src/tools/`) |
 | `agents/` | Grafo LangGraph por lead, prompts, salidas estructuradas | `core`, `tools`, `leads` | kaymen99 (`graph.py`, `nodes.py`, `state.py`) |
@@ -100,12 +106,11 @@ docker-compose
 ├── worker             scheduler: discovery, enrichment, agente, Sheets, email
 └── app (cli)          docker compose run --rm app leadbot <comando>
 
-Tu máquina (F4)
-└── leadbot send whatsapp|instagram|facebook|linkedin   navegador visible con tu sesión
+Tu navegador o celular
+└── enlaces de la pestaña Aprobación (wa.me, ig.me, m.me): el envío por redes lo haces tú
 ```
 
-Los canales con navegador no corren en Docker: necesitan tu sesión real y una ventana visible
-(ver [ADR 0005](adr/0005-canales-redes-con-navegador.md)).
+Ver [ADR 0005](adr/0005-canales-redes-asistidos.md).
 
 ## 8. Seguridad, cumplimiento y riesgos
 
@@ -113,7 +118,7 @@ Los canales con navegador no corren en Docker: necesitan tu sesión real y una v
 |---|---|
 | Ley 1581 (datos personales) | Solo datos públicos de negocios; línea de baja en cada mensaje; `suppressions` revisada antes de cada envío; `OPT_OUT` irreversible |
 | Secretos | `.env` y `credentials/` fuera de git; contraseña de aplicación de Gmail, nunca la principal |
-| Bloqueo de cuentas en redes | Topes bajos, horario hábil, pausas aleatorias, mensajes distintos, `PAUSE_*`, `health_check` que pausa el canal si la sesión cae. **El riesgo no es cero: automatizar mensajes va contra los términos de Instagram, Facebook, LinkedIn y WhatsApp.** No se implementa evasión de detección. |
+| Bloqueo de cuentas en redes | Modo asistido: ningún bot envía desde tus cuentas; tú das el clic. Topes diarios por canal en Sheets y mensajes distintos. |
 | Reputación del dominio/Gmail | Calentamiento progresivo (30 → 80/día), `List-Unsubscribe`, seguimientos limitados a 2 |
 | Alucinaciones del LLM | Salida estructurada validada; prompts prohíben inventar datos; aprobación humana |
 | Costos de IA | Solo se califican leads ENRICHED; tools devuelven texto recortado; modelo cambiable |
@@ -123,10 +128,10 @@ Los canales con navegador no corren en Docker: necesitan tu sesión real y una v
 | Fase | Entrega | Módulos |
 |---|---|---|
 | **F0** ✅ | Estructura, arquitectura, contratos, config, conocimiento, tests base | todos (esqueleto) |
-| **F1** | Leads reales en Sheets | `discovery`, `enrichment`, `leads.repository`, `outreach.queue`, `sheets.push`, migraciones Alembic, `jobs` |
+| **F1** 🟡 | Leads reales en Sheets | `discovery`, `enrichment`, `leads.repository`, `sheets.push`, migraciones Alembic, `jobs`. Falta conectar la hoja de Google. |
 | **F2** | El agente califica y redacta; apruebas en Sheets | `tools`, `agents`, `sheets.pull_decisions` |
-| **F3** | Email con seguimientos y lectura de respuestas | `channels/email_gmail`, `sequences` |
-| **F4** | WhatsApp Web, Instagram, Facebook, LinkedIn | `channels/browser_base` y adaptadores |
+| **F3** | Email con seguimientos y lectura de respuestas | `channels/email_gmail`, `outreach.queue`, `sequences` |
+| **F4** | WhatsApp, Instagram, Facebook, LinkedIn asistidos; descubrir leads directamente en Instagram y Facebook | `channels/assisted` (listo), columna "abrir chat" y ENVIADO en Sheets |
 | **F5** | Propuesta PDF y métricas | `proposals`, pestaña Métricas |
 
 ## 10. Referencias open source

@@ -33,8 +33,6 @@ class Settings(BaseSettings):
     gmail_app_password: str = ""
     sender_name: str = "BrainSol"
 
-    browser_sessions_dir: str = "sessions"
-
     pause_all: bool = False
     pause_email: bool = False
     pause_whatsapp: bool = False
