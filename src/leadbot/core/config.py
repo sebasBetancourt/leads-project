@@ -21,7 +21,13 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://leadbot:leadbot@localhost:5432/leadbot"
     gmaps_scraper_url: str = "http://localhost:8080"
 
-    llm_model: str = "anthropic/claude-sonnet-5-5"
+    llm_model: str = "groq/openai/gpt-oss-120b"
+    llm_model_qualify: str = ""  # vacío: usa llm_model
+    llm_model_draft: str = ""
+    llm_json_mode: str = "schema"  # schema | json_object (ver core/llm.py)
+    llm_timeout_seconds: float = 60.0
+    llm_num_retries: int = 3
+    llm_max_validation_attempts: int = 2
 
     web_search_provider: str = "duckduckgo"
     serpapi_api_key: str = ""
@@ -39,6 +45,10 @@ class Settings(BaseSettings):
     pause_instagram: bool = False
     pause_facebook: bool = False
     pause_linkedin: bool = False
+
+    def model_for(self, task: str) -> str:
+        """Modelo para una tarea del agente (qualify, draft) o el general."""
+        return getattr(self, f"llm_model_{task}", "") or self.llm_model
 
     def is_paused(self, channel: str) -> bool:
         return self.pause_all or bool(getattr(self, f"pause_{channel}", False))
