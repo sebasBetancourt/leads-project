@@ -2,11 +2,12 @@
 
 Las pruebas que tocan Postgres usan la fixture `db` y se saltan si no hay TEST_DATABASE_URL:
 
-    docker run -d --name leadbot-test-pg -e POSTGRES_USER=leadbot -e POSTGRES_PASSWORD=leadbot \
-        -e POSTGRES_DB=leadbot_test -p 55432:5432 postgres:16-alpine
-    TEST_DATABASE_URL=postgresql+psycopg://leadbot:leadbot@localhost:55432/leadbot_test uv run pytest
+    docker run -d --name leadbot-test-pg -e POSTGRES_USER=leadbot -e POSTGRES_DB=leadbot_test \
+        -e POSTGRES_HOST_AUTH_METHOD=trust -p 127.0.0.1:55432:5432 postgres:16-alpine
+    TEST_DATABASE_URL=postgresql+psycopg://leadbot@127.0.0.1:55432/leadbot_test uv run pytest
 
-En CI la provee el servicio postgres del workflow.
+La base es desechable y no tiene contraseña (solo escucha en 127.0.0.1): no uses estos valores
+para la base de trabajo. En CI la provee el servicio postgres del workflow.
 """
 
 import os

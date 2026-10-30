@@ -13,15 +13,16 @@ jobs:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: leadbot
-          POSTGRES_PASSWORD: leadbot
           POSTGRES_DB: leadbot_test
+          # Base desechable del job: sin contraseña, así no hay credenciales en el repo.
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U leadbot -d leadbot_test"
           --health-interval 5s
           --health-retries 10
     env:
-      TEST_DATABASE_URL: postgresql+psycopg://leadbot:leadbot@localhost:5432/leadbot_test
+      TEST_DATABASE_URL: postgresql+psycopg://leadbot@127.0.0.1:5432/leadbot_test
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
