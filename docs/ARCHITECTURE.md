@@ -128,7 +128,7 @@ Ver [ADR 0005](adr/0005-canales-redes-asistidos.md).
 | Fase | Entrega | Módulos |
 |---|---|---|
 | **F0** ✅ | Estructura, arquitectura, contratos, config, conocimiento, tests base | todos (esqueleto) |
-| **F1** 🟡 | Leads reales en Sheets | `discovery`, `enrichment`, `leads.repository`, `sheets.push`, migraciones Alembic, `jobs`. Falta conectar la hoja de Google. |
+| **F1** ✅ | Leads reales en Sheets | `discovery`, `enrichment`, `leads.repository`, `sheets.push`, migraciones Alembic, `jobs`. Primera corrida (2026-10-30, Bucaramanga): 3 búsquedas, 48 negocios, 41 con canal de contacto. |
 | **F2** | El agente califica y redacta; apruebas en Sheets | `tools`, `agents`, `sheets.pull_decisions` |
 | **F3** | Email con seguimientos y lectura de respuestas | `channels/email_gmail`, `outreach.queue`, `sequences` |
 | **F4** | WhatsApp, Instagram, Facebook, LinkedIn asistidos; descubrir leads directamente en Instagram y Facebook | `channels/assisted` (listo), columna "abrir chat" y ENVIADO en Sheets |

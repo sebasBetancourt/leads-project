@@ -19,7 +19,7 @@ Arquitectura completa: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · Decisio
 | Fase | Qué entrega | Estado |
 |---|---|---|
 | F0 | Estructura, arquitectura y contratos | ✅ |
-| F1 | Leads reales en Google Sheets | 🟡 código y pruebas listos; falta conectar tu hoja |
+| F1 | Leads reales en Google Sheets | ✅ |
 | F2 | Agente IA califica y redacta; aprobación | |
 | F3 | Envío por email y seguimientos | |
 | F4 | WhatsApp, Instagram, Facebook, LinkedIn (asistido) | |
