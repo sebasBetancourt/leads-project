@@ -74,6 +74,8 @@ class SheetsSync:
             rows = [lead_row(c) for c in LeadRepository(session).all_with_contacts()]
 
         tab = self._tab(LEADS_TAB, len(LEADS_COLUMNS))
+        if tab.index != 0:
+            tab.update_index(0)  # que sea lo primero que ves al abrir la hoja
         tab.clear()
         tab.update([LEADS_COLUMNS, *rows], "A1")
         tab.freeze(rows=1)
