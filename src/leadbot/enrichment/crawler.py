@@ -15,6 +15,13 @@ CONTACT_WORDS = ("contact", "nosotros", "about", "quienes-somos", "ubicacion")
 
 
 @dataclass
+class FetchedPage:
+    url: str  # después de redirecciones
+    html: str = ""
+    error: str | None = None
+
+
+@dataclass
 class CrawledSite:
     url: str
     pages: dict[str, str] = field(default_factory=dict)  # url -> html
@@ -42,16 +49,38 @@ def _contact_links(html: str, base_url: str) -> list[str]:
     return links
 
 
+def normalize_url(url: str) -> str:
+    return url if url.startswith(("http://", "https://")) else f"https://{url}"
+
+
+def _client(timeout: float) -> httpx.Client:
+    # verify=False: muchas webs de pymes tienen el certificado vencido; solo leemos páginas públicas.
+    return httpx.Client(follow_redirects=True, timeout=timeout, headers={"User-Agent": USER_AGENT}, verify=False)
+
+
+def fetch_page(url: str, *, timeout: float = 10.0) -> FetchedPage:
+    """Una sola página (la usa tools.web_reader). Respeta robots.txt salvo para la home."""
+    url = normalize_url(url)
+    with _client(timeout) as client:
+        try:
+            response = client.get(url)
+            response.raise_for_status()
+        except httpx.HTTPError as e:
+            return FetchedPage(url=url, error=f"{type(e).__name__}: {e}"[:300])
+        if "html" not in response.headers.get("content-type", ""):
+            return FetchedPage(url=str(response.url), error="no es una página HTML")
+        final = str(response.url)
+        if urlparse(final).path not in ("", "/") and not _robots(client, final).can_fetch(USER_AGENT, final):
+            return FetchedPage(url=final, error="robots.txt no permite leer esta página")
+        return FetchedPage(url=final, html=response.text)
+
+
 def crawl_site(url: str, *, max_pages: int = 4, timeout: float = 10.0) -> CrawledSite:
     """Sin JavaScript (httpx). Respeta robots.txt y un user-agent identificable."""
-    if not url.startswith(("http://", "https://")):
-        url = f"https://{url}"
+    url = normalize_url(url)
     site = CrawledSite(url=url)
 
-    # verify=False: muchas webs de pymes tienen el certificado vencido; solo leemos páginas públicas.
-    with httpx.Client(
-        follow_redirects=True, timeout=timeout, headers={"User-Agent": USER_AGENT}, verify=False
-    ) as client:
+    with _client(timeout) as client:
         try:
             home = client.get(url)
             home.raise_for_status()
