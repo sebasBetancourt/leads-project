@@ -17,6 +17,8 @@ Arranque: Santander (área metropolitana de Bucaramanga primero) y los sectores 
 
 1. **Postgres es la fuente de verdad.** Google Sheets es solo la vista y el lugar de aprobación.
 2. **Nada sale sin aprobación.** Todo mensaje pasa por `PENDING_APPROVAL` en Sheets.
+   Lo verificable (canales, caso de éxito, umbral, señales de la web, línea de baja) lo garantiza
+   el código, no el LLM ([ADR 0006](adr/0006-agente-determinista-y-aprobacion.md)).
 3. **Ningún bot escribe desde tus redes.** WhatsApp, Instagram, Facebook y LinkedIn son asistidos (ADR 0005).
 4. **Todo envío pasa por guardrails**: horario, tope diario, pausa por canal y lista de no contactar.
 5. **Cada etapa corre sola y se puede reintentar** (`leadbot discover`, `enrich`, `qualify`...).
@@ -38,7 +40,7 @@ Arranque: Santander (área metropolitana de Bucaramanga primero) y los sectores 
                        ├─► qualify ──► draft_messages ──► save      research + messages (PENDING_APPROVAL)
   search_web_presence ─┘      └─ no califica ─────────► save       (UNQUALIFIED)
             ▼
- [4] APROBACIÓN  sheets/         pestaña "Aprobación": editas, marcas APROBADO / RECHAZADO
+ [4] APROBACIÓN  sheets/         pestaña "Aprobación": editas, marcas APROBADO / REHACER / DESCARTAR
             ▼
  [5] OUTREACH    outreach/       guardrails (horario, tope diario, no contactar)
        ├─ email: cola (SKIP LOCKED) ─► email_gmail, envío automático (F3)
@@ -86,7 +88,7 @@ Lead (`leads/status.py`):
 NEW → ENRICHED → QUALIFIED → DRAFTED → PENDING_APPROVAL → APPROVED → CONTACTED → REPLIED → MEETING → WON
  │        │                                 │    ▲                        │          │          │
  └► UNQUALIFIED ◄───────────────────────────┤    └─ rechazado con notas   └► LOST ◄──┴──────────┘
-                                            └─► (vuelve a DRAFTED)
+                                            └─► (REHACER: vuelve a DRAFTED y se redacta de nuevo)
 OPT_OUT: desde cualquier estado, final e irreversible.
 ```
 
@@ -121,7 +123,8 @@ Ver [ADR 0005](adr/0005-canales-redes-asistidos.md).
 | Bloqueo de cuentas en redes | Modo asistido: ningún bot envía desde tus cuentas; tú das el clic. Topes diarios por canal en Sheets y mensajes distintos. |
 | Reputación del dominio/Gmail | Calentamiento progresivo (30 → 80/día), `List-Unsubscribe`, seguimientos limitados a 2 |
 | Alucinaciones del LLM | Salida estructurada validada; prompts prohíben inventar datos; aprobación humana |
-| Costos de IA | Solo se califican leads ENRICHED; tools devuelven texto recortado; modelo cambiable |
+| Costos de IA | Solo se califican leads ENRICHED; tools devuelven texto recortado; modelo cambiable (por tarea); tokens y costo guardados por lead en `research` |
+| Prompt injection desde webs | El contenido de terceros va delimitado entre `<<< >>>` y marcado como datos; el agente no tiene tools que envíen nada |
 
 ## 9. Fases
 
@@ -129,7 +132,7 @@ Ver [ADR 0005](adr/0005-canales-redes-asistidos.md).
 |---|---|---|
 | **F0** ✅ | Estructura, arquitectura, contratos, config, conocimiento, tests base | todos (esqueleto) |
 | **F1** ✅ | Leads reales en Sheets | `discovery`, `enrichment`, `leads.repository`, `sheets.push`, migraciones Alembic, `jobs`. Primera corrida (2026-10-30, Bucaramanga): 3 búsquedas, 48 negocios, 41 con canal de contacto. |
-| **F2** | El agente califica y redacta; apruebas en Sheets | `tools`, `agents`, `sheets.pull_decisions` |
+| **F2** 🚧 | El agente califica y redacta; apruebas en Sheets | `tools`, `agents`, `sheets.pull_decisions`, `outreach.queue`. Código y pruebas listos (2026-10-30); falta la primera corrida real con Groq sobre los 41 leads de Bucaramanga. |
 | **F3** | Email con seguimientos y lectura de respuestas | `channels/email_gmail`, `outreach.queue`, `sequences` |
 | **F4** | WhatsApp, Instagram, Facebook, LinkedIn asistidos; descubrir leads directamente en Instagram y Facebook | `channels/assisted` (listo), columna "abrir chat" y ENVIADO en Sheets |
 | **F5** | Propuesta PDF y métricas | `proposals`, pestaña Métricas |
