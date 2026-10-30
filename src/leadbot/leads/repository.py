@@ -44,12 +44,7 @@ class LeadRepository:
         self, *, place_id: str | None, phone_e164: str | None, fields: dict, sector: str, city: str, query: str
     ) -> tuple[Company, bool]:
         """Inserta o actualiza por place_id; si no hay, deduplica por teléfono. Devuelve (lead, es_nuevo)."""
-        company = None
-        if place_id:
-            company = self.session.scalar(select(Company).where(Company.place_id == place_id))
-        if company is None and phone_e164:
-            company = self.session.scalar(select(Company).where(Company.phone_e164 == phone_e164))
-
+        company = self.find_existing(place_id, phone_e164)
         created = company is None
         if created:
             # Un negocio que aparece en dos búsquedas conserva la primera: sector, ciudad y source_query.
@@ -65,6 +60,15 @@ class LeadRepository:
         if created:
             self.session.add(Event(company_id=company.id, kind="discovered", data={"query": query}))
         return company, created
+
+    def find_existing(self, place_id: str | None, phone_e164: str | None) -> Company | None:
+        """El mismo negocio: por place_id de Google Maps o, si no, por teléfono (docs/DATA_MODEL.md)."""
+        company = None
+        if place_id:
+            company = self.session.scalar(select(Company).where(Company.place_id == place_id))
+        if company is None and phone_e164:
+            company = self.session.scalar(select(Company).where(Company.phone_e164 == phone_e164))
+        return company
 
     def add_contact(self, company: Company, channel: Channel, value: str, source: str) -> bool:
         """Agrega un canal si no existía. Devuelve True si es nuevo."""

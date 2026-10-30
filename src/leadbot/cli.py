@@ -1,6 +1,7 @@
 """CLI: leadbot <comando>. Cada comando es una etapa del pipeline y se puede correr sola."""
 
 import sys
+from pathlib import Path
 
 import typer
 
@@ -64,6 +65,20 @@ def enrich(limit: int = 50) -> None:
 
     stats = run_enrichment(limit=limit)
     typer.echo(f"{stats.processed} procesados · {stats.enriched} con canales · {stats.unqualified} sin canales")
+
+
+@app.command("import-xlsx")
+def import_xlsx(
+    path: Path = typer.Argument(..., exists=True, dir_okay=False, help="Exportación de la pestaña Leads"),
+) -> None:
+    """Carga en Postgres los leads de un .xlsx exportado de Sheets (en vez de repetir discover y enrich)."""
+    from leadbot.sheets.importer import import_xlsx as run_import
+
+    stats = run_import(path)
+    typer.echo(
+        f"{stats.rows} filas · {stats.created} leads nuevos · {stats.existing} ya existían · "
+        f"{stats.skipped} sin datos · {stats.contacts} canales de contacto"
+    )
 
 
 @app.command()

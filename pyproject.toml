@@ -24,6 +24,7 @@ dependencies = [
     "ddgs>=9.0",  # búsqueda web del agente (DuckDuckGo, sin key)
     # Interfaz MVP
     "gspread>=6.1",
+    "openpyxl>=3.1",  # leadbot import-xlsx
     # Propuestas y scheduler
     "jinja2>=3.1",
     "apscheduler>=3.10,<4",

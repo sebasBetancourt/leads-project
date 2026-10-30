@@ -57,6 +57,7 @@ uv run leadbot queries                        # ver las búsquedas que se harán
 uv run leadbot discover --limit 3             # Google Maps -> leads NEW
 uv run leadbot enrich                         # su web -> email, WhatsApp, Instagram, Facebook
 uv run leadbot stats                          # cuántos leads hay en cada estado
+uv run leadbot import-xlsx Leads.xlsx         # alternativa a discover + enrich: carga una exportación de la pestaña Leads
 uv run leadbot research 12                    # F2: investigación de un lead (sin IA, no guarda nada)
 uv run leadbot qualify --limit 3 --dry-run    # F2: calificación y mensajes de 3 leads, sin guardar
 uv run leadbot qualify --limit 20             # F2: el agente califica y deja mensajes en PENDING_APPROVAL
