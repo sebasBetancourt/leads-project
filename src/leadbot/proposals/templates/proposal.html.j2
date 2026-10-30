@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Propuesta para {{ company_name }} | BrainSol</title>
+  <style>
+    @page { size: A4; margin: 2cm; }
+    body { font-family: sans-serif; color: #1a1a1a; line-height: 1.5; }
+    h1 { margin-bottom: 0; }
+    .muted { color: #666; }
+  </style>
+</head>
+<body>
+  <h1>Propuesta para {{ company_name }}</h1>
+  <p class="muted">Brain Solutions · brainsol.vercel.app</p>
+
+  <h2>Lo que vimos</h2>
+  <p>{{ qualification.summary }}</p>
+
+  <h2>Qué podemos resolver</h2>
+  <ul>{% for need in qualification.needs %}<li>{{ need }}</li>{% endfor %}</ul>
+
+  <h2>Un caso parecido</h2>
+  {{ case_study_html }}
+
+  <h2>Cómo trabajamos (8 semanas)</h2>
+  <ol>
+    <li>Estrategia</li>
+    <li>Diseño UI/UX</li>
+    <li>Desarrollo</li>
+    <li>Lanzamiento</li>
+  </ol>
+
+  <h2>Siguiente paso</h2>
+  <p>Una llamada de 20 minutos para entender tu operación: brainsol.vercel.app</p>
+</body>
+</html>
