@@ -1,0 +1,24 @@
+# Ciudades de Colombia por prioridad (1 = primero). discovery recorre por prioridad
+# y, dentro de cada una, por sector. Desactiva una ciudad con enabled: false.
+
+cities:
+  - { name: Bogotá,        department: Cundinamarca,       priority: 1, enabled: true }
+  - { name: Medellín,      department: Antioquia,          priority: 1, enabled: true }
+  - { name: Cali,          department: Valle del Cauca,    priority: 1, enabled: true }
+  - { name: Barranquilla,  department: Atlántico,          priority: 1, enabled: true }
+  - { name: Bucaramanga,   department: Santander,          priority: 2, enabled: true }
+  - { name: Cartagena,     department: Bolívar,            priority: 2, enabled: true }
+  - { name: Pereira,       department: Risaralda,          priority: 2, enabled: true }
+  - { name: Manizales,     department: Caldas,             priority: 2, enabled: true }
+  - { name: Cúcuta,        department: Norte de Santander, priority: 2, enabled: true }
+  - { name: Ibagué,        department: Tolima,             priority: 3, enabled: true }
+  - { name: Villavicencio, department: Meta,               priority: 3, enabled: true }
+  - { name: Santa Marta,   department: Magdalena,          priority: 3, enabled: true }
+  - { name: Armenia,       department: Quindío,            priority: 3, enabled: true }
+  - { name: Pasto,         department: Nariño,             priority: 3, enabled: true }
+  - { name: Neiva,         department: Huila,              priority: 3, enabled: true }
+  - { name: Montería,      department: Córdoba,            priority: 3, enabled: true }
+  - { name: Popayán,       department: Cauca,              priority: 3, enabled: true }
+  - { name: Tunja,         department: Boyacá,             priority: 3, enabled: true }
+  - { name: Valledupar,    department: Cesar,              priority: 3, enabled: true }
+  - { name: Sincelejo,     department: Sucre,              priority: 3, enabled: true }

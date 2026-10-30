@@ -1,0 +1,44 @@
+# Protecciones de envío (outreach/guardrails.py). Patrón tomado de AgentSDR (send guardrails).
+# Todo envío pasa por aquí; si una regla no se cumple, el mensaje espera en la cola.
+
+timezone: America/Bogota
+
+# Horario de envío: lunes a viernes. Fuera de este horario no sale nada.
+send_window:
+  weekdays: [0, 1, 2, 3, 4]   # 0 = lunes
+  start: "08:00"
+  end: "18:00"
+
+channels:
+  email:
+    daily_max: 80
+    # Calentamiento de la cuenta: empieza en warmup_start y sube warmup_step por día hasta daily_max.
+    warmup_start: 30
+    warmup_step: 3
+    min_delay_seconds: 90
+    max_delay_seconds: 300
+  whatsapp:
+    daily_max: 15
+    min_delay_seconds: 240
+    max_delay_seconds: 600
+  instagram:
+    daily_max: 10
+    min_delay_seconds: 300
+    max_delay_seconds: 900
+  facebook:
+    daily_max: 10
+    min_delay_seconds: 300
+    max_delay_seconds: 900
+  linkedin:
+    daily_max: 10
+    min_delay_seconds: 300
+    max_delay_seconds: 900
+    max_message_chars: 300
+
+# Seguimientos automáticos (solo email en el MVP). Días después del primer contacto sin respuesta.
+sequences:
+  email:
+    follow_up_days: [3, 7]
+
+# Un mismo negocio no recibe mensajes por más de este número de canales en total.
+max_channels_per_lead: 2

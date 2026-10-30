@@ -1,0 +1,84 @@
+# Sectores objetivo. Cada término se combina con cada ciudad de cities.yaml
+# para formar las búsquedas de Google Maps: "<término> en <ciudad>".
+#
+# - pains: problemas típicos del sector; el agente los usa para detectar la necesidad.
+# - offer: qué le proponemos a ese sector.
+# - case_studies: casos de knowledge/case_studies/ que mejor encajan (por nombre de archivo).
+#
+# Nota: los 3 casos actuales son e-commerce de productos. Los sectores con
+# servicios (logística, educación) encajan menos y el agente debe ser más exigente al calificarlos.
+
+sectors:
+  restaurantes_comercio:
+    enabled: true
+    label: Restaurantes y comercio
+    terms:
+      - restaurantes
+      - tiendas de ropa
+      - ferreterías
+      - tiendas de tecnología
+      - distribuidoras
+    pains:
+      - Vende solo por WhatsApp o Instagram, sin tienda propia
+      - Catálogo en PDF o en fotos sueltas
+      - Paga comisiones a plataformas de domicilios o marketplaces
+      - No controla inventario en tiempo real
+    offer: Tienda en línea a medida con catálogo, pagos e inventario conectados
+    case_studies: [tiendamotek, tiendah2r]
+
+  servicios_logistica:
+    enabled: true
+    label: Servicios y logística
+    terms:
+      - transportadoras
+      - empresas de mensajería
+      - talleres de motos
+      - talleres mecánicos
+      - gimnasios
+    pains:
+      - Cotizaciones y pedidos por teléfono o WhatsApp
+      - Sin seguimiento de envíos ni historial de clientes
+      - Información operativa en hojas de cálculo dispersas
+    offer: Sistema a medida para pedidos, seguimiento y gestión de clientes
+    case_studies: [luxtimee]
+
+  educacion:
+    enabled: true
+    label: Educación
+    terms:
+      - academias
+      - institutos de idiomas
+      - colegios privados
+      - escuelas de conducción
+    pains:
+      - Matrículas y pagos manuales
+      - Venta de cursos sin plataforma propia
+      - Datos de estudiantes en hojas de cálculo
+    offer: Plataforma a medida para matrículas, pagos y venta de cursos
+    case_studies: [luxtimee]
+
+  # --- Desactivados: encajan directo con los casos actuales. Actívalos si quieres. ---
+  repuestos_autopartes:
+    enabled: false
+    label: Repuestos y autopartes
+    terms:
+      - repuestos para motos
+      - autopartes
+      - lubricantes y llantas
+    pains:
+      - Catálogo dependiente de un tercero
+      - Clientes preguntan por compatibilidad por WhatsApp
+    offer: Tienda a medida con búsqueda por categorías y compatibilidad
+    case_studies: [tiendah2r, tiendamotek]
+
+  joyeria_relojeria:
+    enabled: false
+    label: Joyería y relojería
+    terms:
+      - relojerías
+      - joyerías
+    pains:
+      - Catálogo en PDF
+      - Sin métricas de ventas por producto
+    offer: Software a medida con catálogo digital y métricas de venta
+    case_studies: [luxtimee]
