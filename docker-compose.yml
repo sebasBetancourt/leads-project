@@ -1,0 +1,70 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      retries: 10
+
+  # Scraper de Google Maps (github.com/gosom/google-maps-scraper, MIT).
+  # Lo usamos tal cual por su REST API: POST /api/v1/jobs. Docs en http://localhost:8080/api/docs
+  gmaps:
+    image: gosom/google-maps-scraper:v1.18.1
+    restart: unless-stopped
+    command: ["-data-folder", "/gmapsdata"]
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./gmapsdata:/gmapsdata
+      - gmaps-playwright-cache:/opt
+
+  # Scheduler: discovery, enrichment, agente, sync con Sheets, envío de email.
+  # Los canales de redes (F4) corren en tu máquina, no aquí: ver docs/adr/0005.
+  worker:
+    build: .
+    restart: unless-stopped
+    command: ["leadbot", "worker"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      GMAPS_SCRAPER_URL: http://gmaps:8080
+    volumes:
+      - ./config:/app/config:ro
+      - ./knowledge:/app/knowledge:ro
+      - ./credentials:/app/credentials:ro
+      - ./output:/app/output
+    depends_on:
+      postgres:
+        condition: service_healthy
+      gmaps:
+        condition: service_started
+
+  # CLI de uso puntual: docker compose run --rm app leadbot discover
+  app:
+    build: .
+    profiles: ["cli"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      GMAPS_SCRAPER_URL: http://gmaps:8080
+    volumes:
+      - ./config:/app/config:ro
+      - ./knowledge:/app/knowledge:ro
+      - ./credentials:/app/credentials:ro
+      - ./output:/app/output
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  gmaps-playwright-cache:

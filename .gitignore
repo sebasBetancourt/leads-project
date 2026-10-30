@@ -1,12 +1,32 @@
 # Secretos
-  .env
-  .env.*
-  !.env.example
+.env
+.env.*
+!.env.example
+credentials/
 
-  # Datos de leads (información personal, no subir)
-  data/
-  *.csv
-  *.xlsx
+# Datos de leads (información personal, no subir)
+data/
+gmapsdata/
+*.csv
+*.xlsx
 
-  # Node / Python
-  node_modules/   
+# Sesiones de navegador (cookies de Instagram, Facebook, LinkedIn, WhatsApp)
+sessions/
+
+# Propuestas generadas
+output/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Editor / SO
+.vscode/
+.idea/
+.DS_Store

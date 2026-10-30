@@ -1,0 +1,58 @@
+[project]
+name = "leadbot"
+version = "0.1.0"
+description = "BrainSol Leads: búsqueda, calificación y contacto automatizado de leads en Colombia"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    # Núcleo
+    "pydantic>=2.8",
+    "pydantic-settings>=2.4",
+    "pyyaml>=6.0",
+    "typer>=0.12",
+    # Datos
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.2",
+    "alembic>=1.13",
+    # Discovery / enrichment
+    "httpx>=0.27",
+    "selectolax>=0.3",
+    "phonenumbers>=8.13",
+    # IA
+    "litellm>=1.50",
+    "langgraph>=0.2",
+    # Interfaz MVP
+    "gspread>=6.1",
+    # Propuestas y scheduler
+    "jinja2>=3.1",
+    "apscheduler>=3.10,<4",
+]
+
+[project.optional-dependencies]
+# F4: WhatsApp Web, Instagram, Facebook, LinkedIn
+social = ["playwright>=1.47"]
+# F5: propuesta en PDF
+pdf = ["weasyprint>=62"]
+dev = ["pytest>=8.3", "ruff>=0.6"]
+
+[project.scripts]
+leadbot = "leadbot.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/leadbot"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["B008"]  # typer.Option en defaults es el idioma de Typer

@@ -1,0 +1,12 @@
+.git
+.env
+.env.*
+.venv
+credentials
+sessions
+data
+gmapsdata
+output
+__pycache__
+.pytest_cache
+.ruff_cache
