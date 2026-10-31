@@ -1,11 +1,14 @@
 """Acceso a leads. Patrón LeadLoaderBase de kaymen99: el resto del sistema no sabe de SQL."""
 
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from leadbot.leads.models import Company, ContactChannel, Event, Message, Research, Suppression
+from leadbot.core.clock import from_db, to_db
+from leadbot.leads.models import Company, ContactChannel, Event, MailCursor, Message, Research, Suppression
 from leadbot.leads.status import Channel, LeadStatus, MessageStatus, ensure_transition
 
 if TYPE_CHECKING:  # solo para tipos: leads no depende de agents en tiempo de ejecución
@@ -211,6 +214,61 @@ class LeadRepository:
         self.change_status(company, LeadStatus.PENDING_APPROVAL)
         return messages
 
+    def save_follow_up(
+        self,
+        *,
+        company_id: int,
+        contact_id: int,
+        step: int,
+        draft: "MessageDraft",
+        research_id: int,
+        tokens: int,
+        cost_usd: float,
+        redo_message_id: int | None = None,
+    ) -> Message:
+        """Seguimiento nuevo (o rehecho tras un REHACER) en PENDING_APPROVAL. El lead sigue en CONTACTED."""
+        company = self.session.get(Company, company_id, with_for_update=True, populate_existing=True)
+        if company is None or company.status != LeadStatus.CONTACTED:
+            raise LeadStateChanged(f"lead {company_id}: se esperaba CONTACTED, está en {company and company.status}")
+        contact = self.session.get(ContactChannel, contact_id)
+        if contact is None or contact.invalid or self.is_suppressed(contact.value):
+            raise LeadStateChanged(f"lead {company_id}: el contacto {contact_id} ya no se puede usar")
+        in_thread = (Message.company_id == company_id, Message.contact_id == contact_id)
+        if redo_message_id is None:
+            newest_step = self.session.scalar(select(func.max(Message.step)).where(*in_thread))
+            if newest_step is not None and newest_step >= step:
+                raise LeadStateChanged(f"lead {company_id}: el seguimiento {step} ya existe")
+        else:
+            newest_id = self.session.scalar(select(func.max(Message.id)).where(*in_thread, Message.step == step))
+            if newest_id != redo_message_id:
+                raise LeadStateChanged(f"lead {company_id}: el seguimiento {step} ya se rehízo")
+
+        message = Message(
+            company_id=company_id,
+            contact_id=contact_id,
+            channel=draft.channel,
+            step=step,
+            subject=draft.subject,
+            body=draft.body,
+            original_body=draft.body,
+            review_flags=draft.flags,
+            status=MessageStatus.PENDING_APPROVAL,
+        )
+        self.session.add(message)
+        research = self.session.get(Research, research_id)
+        research.tokens += tokens
+        research.cost_usd += cost_usd
+        self.session.flush()
+        self.session.add(
+            Event(
+                company_id=company_id,
+                message_id=message.id,
+                kind="message_drafted",
+                data={"flags": message.review_flags, "step": step, "tokens": tokens, "cost_usd": cost_usd},
+            )
+        )
+        return message
+
     def pending_approval_messages(self) -> list[Message]:
         stmt = (
             select(Message)
@@ -237,3 +295,103 @@ class LeadRepository:
             ).all()
         )
         return [m for m in rejected if newest.get(m.channel) == m.id]
+
+    # --- Envío (F3) ----------------------------------------------------------------------
+
+    def _sent_dates(self, channel: Channel, tz: ZoneInfo) -> list[date]:
+        """Día local de cada mensaje enviado por el canal (el volumen es de cientos: se agrupa en Python)."""
+        sent = self.session.scalars(
+            select(Message.sent_at).where(Message.channel == channel, Message.status == MessageStatus.SENT)
+        )
+        return [from_db(moment).astimezone(tz).date() for moment in sent if moment is not None]
+
+    def sent_today(self, channel: Channel, now: datetime, tz: ZoneInfo) -> int:
+        today = now.astimezone(tz).date()
+        return sum(1 for day in self._sent_dates(channel, tz) if day == today)
+
+    def days_active(self, channel: Channel, now: datetime, tz: ZoneInfo) -> int:
+        """Días anteriores a hoy en que el canal envió algo (alimenta el calentamiento de la cuenta)."""
+        today = now.astimezone(tz).date()
+        return len({day for day in self._sent_dates(channel, tz) if day < today})
+
+    def last_sent(self, channel: Channel) -> tuple[int, datetime] | None:
+        """(id del mensaje, cuándo salió) del último envío del canal."""
+        row = self.session.execute(
+            select(Message.id, Message.sent_at)
+            .where(Message.channel == channel, Message.status == MessageStatus.SENT, Message.sent_at.is_not(None))
+            .order_by(Message.sent_at.desc(), Message.id.desc())
+            .limit(1)
+        ).first()
+        return None if row is None else (row[0], from_db(row[1]))
+
+    def add_suppression(self, value: str, reason: str) -> bool:
+        """Agrega a la lista de no contactar. True si es nuevo."""
+        value = value.strip()
+        if not value or self.is_suppressed(value):
+            return False
+        self.session.add(Suppression(value=value, reason=reason[:255]))
+        return True
+
+    def cancel_open_messages(self, company_id: int, reason: str, *, contact_id: int | None = None) -> int:
+        """Cancela lo que no ha salido (PENDING_APPROVAL, APPROVED, QUEUED) y los trabajos de envío pendientes."""
+        stmt = select(Message).where(
+            Message.company_id == company_id,
+            Message.status.in_([MessageStatus.PENDING_APPROVAL, MessageStatus.APPROVED, MessageStatus.QUEUED]),
+        )
+        if contact_id is not None:
+            stmt = stmt.where(Message.contact_id == contact_id)
+        messages = list(self.session.scalars(stmt))
+        for message in messages:
+            message.status = MessageStatus.CANCELLED
+            self.session.add(
+                Event(company_id=company_id, message_id=message.id, kind="message_cancelled", data={"reason": reason})
+            )
+        if messages:
+            from leadbot.leads.models import Job
+
+            ids = [str(m.id) for m in messages]
+            for job in self.session.scalars(
+                select(Job).where(Job.kind == "send", Job.dedup_key.in_(ids), Job.status == "pending")
+            ):
+                job.status = "failed"
+                job.last_error = f"cancelado: {reason}"
+        return len(messages)
+
+    def thread_ids(self, message: Message) -> list[str]:
+        """Message-ID de los mensajes anteriores del mismo hilo (negocio y destinatario), del más viejo al más nuevo."""
+        return list(
+            self.session.scalars(
+                select(Message.external_id)
+                .where(
+                    Message.company_id == message.company_id,
+                    Message.contact_id == message.contact_id,
+                    Message.step < message.step,
+                    Message.external_id.is_not(None),
+                    Message.status == MessageStatus.SENT,
+                )
+                .order_by(Message.step)
+            )
+        )
+
+    def get_cursor(self, folder: str) -> MailCursor | None:
+        return self.session.get(MailCursor, folder)
+
+    def save_cursor(self, folder: str, uidvalidity: int | None, last_uid: int) -> None:
+        cursor = self.session.get(MailCursor, folder)
+        if cursor is None:
+            self.session.add(MailCursor(folder=folder, uidvalidity=uidvalidity, last_uid=last_uid))
+        else:
+            cursor.uidvalidity, cursor.last_uid = uidvalidity, last_uid
+
+    def event_count_since(self, kind: str, since: datetime) -> int:
+        return self.session.scalar(
+            select(func.count()).select_from(Event).where(Event.kind == kind, Event.created_at >= to_db(since))
+        )
+
+    def recent_sent_subjects(self, since: datetime) -> set[str]:
+        rows = self.session.scalars(
+            select(Message.subject).where(
+                Message.status == MessageStatus.SENT, Message.sent_at >= to_db(since), Message.subject.is_not(None)
+            )
+        )
+        return set(rows)

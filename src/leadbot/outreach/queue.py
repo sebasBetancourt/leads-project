@@ -23,6 +23,8 @@ from leadbot.leads.models import Job
 
 MAX_ATTEMPTS = 3
 STALE_AFTER = timedelta(minutes=30)  # un trabajo "running" más viejo que esto: el worker murió
+# Trabajos con efecto externo: si el worker muere a la mitad no se reintentan solos (podrían duplicarse).
+NO_AUTO_RETRY = ("send",)
 
 
 def enqueue(
@@ -70,11 +72,34 @@ def fail(session: Session, job: Job, error: str, *, retryable: bool) -> None:
         job.status = "failed"
 
 
+def defer(job: Job, until: datetime | None = None) -> None:
+    """Deja el trabajo para después sin gastar un intento (algo externo lo bloquea: cuota, credencial)."""
+    job.status = "pending"
+    job.attempts = max(job.attempts - 1, 0)
+    job.locked_at = None
+    if until is not None:
+        job.run_after = until
+
+
 def release_stale(session: Session, older_than: timedelta = STALE_AFTER) -> int:
-    """Devuelve a pending los trabajos que quedaron running porque el worker se cayó."""
+    """Devuelve a pending los trabajos que quedaron running porque el worker se cayó (menos NO_AUTO_RETRY)."""
     result = session.execute(
         update(Job)
-        .where(Job.status == "running", Job.locked_at < func.now() - older_than)
+        .where(Job.status == "running", Job.locked_at < func.now() - older_than, Job.kind.not_in(NO_AUTO_RETRY))
         .values(status="pending", locked_at=None)
     )
     return result.rowcount
+
+
+def quarantine_stale(session: Session, older_than: timedelta = STALE_AFTER) -> list[Job]:
+    """Los trabajos NO_AUTO_RETRY que quedaron running pasan a needs_review: alguien confirma si salieron."""
+    jobs = list(
+        session.scalars(
+            select(Job).where(
+                Job.status == "running", Job.locked_at < func.now() - older_than, Job.kind.in_(NO_AUTO_RETRY)
+            )
+        )
+    )
+    for job in jobs:
+        job.status = "needs_review"
+    return jobs

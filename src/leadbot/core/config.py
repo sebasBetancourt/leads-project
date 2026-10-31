@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     gmail_address: str = ""
     gmail_app_password: str = ""
     sender_name: str = "BrainSol"
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 465
+    imap_host: str = "imap.gmail.com"
+
+    log_format: str = "text"  # text | json (un objeto por línea, con company_id / message_id / job_id)
 
     pause_all: bool = False
     pause_email: bool = False

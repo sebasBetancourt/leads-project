@@ -5,7 +5,7 @@ Todo mensaje pasa por `check_send` justo antes de salir. Si no pasa, vuelve a la
 
 import random
 from dataclasses import dataclass
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -62,6 +62,21 @@ def in_send_window(policy: SendPolicy, now: datetime) -> bool:
     return local.weekday() in policy.weekdays and policy.start <= local.time() < policy.end
 
 
+def next_window_start(policy: SendPolicy, now: datetime) -> datetime:
+    """Primer instante, desde `now`, en que se puede enviar según el horario (misma zona que `now`)."""
+    local = now.astimezone(policy.timezone)
+    if in_send_window(policy, now):
+        return now
+    day = local.date()
+    if not (local.weekday() in policy.weekdays and local.time() < policy.start):
+        day += timedelta(days=1)  # ya pasó la hora de hoy (o hoy no se envía)
+    for _ in range(8):
+        if day.weekday() in policy.weekdays:
+            return datetime.combine(day, policy.start, tzinfo=policy.timezone).astimezone(now.tzinfo)
+        day += timedelta(days=1)
+    raise ValueError("send_window.weekdays está vacío")
+
+
 def check_send(
     policy: SendPolicy,
     channel: Channel,
@@ -90,3 +105,12 @@ def check_send(
 def next_delay_seconds(limits: ChannelLimits, rng: random.Random | None = None) -> int:
     """Pausa aleatoria entre envíos del mismo canal, para no enviar a ritmo de máquina."""
     return (rng or random).randint(limits.min_delay_seconds, limits.max_delay_seconds)
+
+
+def pacing_delay(limits: ChannelLimits, last_message_id: int) -> int:
+    """Pausa que debe pasar después del último envío del canal.
+
+    Se deriva del id del último mensaje: es distinta entre mensajes pero estable entre ciclos del worker
+    (si se sorteara en cada ciclo, casi siempre saldría una pausa corta).
+    """
+    return next_delay_seconds(limits, random.Random(last_message_id))

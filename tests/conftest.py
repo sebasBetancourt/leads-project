@@ -19,6 +19,23 @@ if TEST_DATABASE_URL:
 
 import pytest  # noqa: E402
 
+LEAKY_ENV = (
+    "GOOGLE_SHEET_ID",
+    "GMAIL_ADDRESS",
+    "GMAIL_APP_PASSWORD",
+    "SMTP_HOST",
+    "IMAP_HOST",
+    "LOG_FORMAT",
+    *(f"PAUSE_{name}" for name in ("ALL", "EMAIL", "WHATSAPP", "INSTAGRAM", "FACEBOOK", "LINKEDIN")),
+)
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_env(monkeypatch):
+    """litellm hace load_dotenv() al importarse y mete tu .env real en os.environ: las pruebas no lo ven."""
+    for name in LEAKY_ENV:
+        monkeypatch.delenv(name, raising=False)
+
 
 @pytest.fixture(scope="session")
 def _migrated():
@@ -39,7 +56,8 @@ def db(_migrated):
     with engine.begin() as conn:
         conn.execute(
             text(
-                "TRUNCATE companies, contact_channels, research, messages, events, suppressions, jobs "
+                "TRUNCATE companies, contact_channels, research, messages, events, suppressions, jobs, "
+                "runtime_flags, mail_cursor, worker_heartbeats "
                 "RESTART IDENTITY CASCADE"
             )
         )
@@ -67,5 +85,34 @@ def make_lead(db):
             db.add(ContactChannel(company_id=company.id, channel=Channel(channel), value=value, source="website"))
         db.commit()
         return company
+
+    return _make
+
+
+@pytest.fixture
+def make_message(db):
+    """Crea un mensaje de email de un lead: make_message(lead, status=..., step=..., sent_at=...)."""
+    from sqlalchemy import select
+
+    from leadbot.leads.models import ContactChannel, Message
+    from leadbot.leads.status import Channel, MessageStatus
+
+    def _make(lead, *, status=MessageStatus.APPROVED, step=0, subject="Su tienda en línea", body="Hola.", **fields):
+        contact = db.scalar(
+            select(ContactChannel).where(ContactChannel.company_id == lead.id, ContactChannel.channel == Channel.EMAIL)
+        )
+        message = Message(
+            company_id=lead.id,
+            contact_id=contact.id,
+            channel=Channel.EMAIL,
+            step=step,
+            subject=subject,
+            body=body,
+            status=status,
+            **fields,
+        )
+        db.add(message)
+        db.commit()
+        return message
 
     return _make

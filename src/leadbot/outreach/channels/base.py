@@ -4,7 +4,7 @@ Las redes sociales no usan este contrato: son asistidas (channels/assisted.py, d
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from leadbot.leads.status import Channel
 
@@ -16,6 +16,9 @@ class OutgoingMessage:
     body: str
     subject: str | None = None
     attachment_path: str | None = None
+    external_id: str | None = None  # Message-ID: se genera y se guarda ANTES de enviar (ADR 0007)
+    in_reply_to: str | None = None  # seguimientos: Message-ID del mensaje anterior del hilo
+    references: list[str] = field(default_factory=list)  # todos los anteriores del hilo
 
 
 @dataclass
@@ -24,6 +27,8 @@ class SendResult:
     external_id: str | None = None
     error: str | None = None
     retryable: bool = False  # True: error temporal (red). False: no reintentar (buzón no existe, bloqueo)
+    pause_channel: bool = False  # credencial inválida o cuota diaria: el canal se pausa, el mensaje no se pierde
+    bad_recipient: bool = False  # el servidor rechazó al destinatario: la dirección no sirve
 
 
 class ChannelAdapter(ABC):
