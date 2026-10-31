@@ -36,9 +36,16 @@ channels:
     max_message_chars: 300
 
 # Seguimientos automáticos (solo email en el MVP). Días después del primer contacto sin respuesta.
+# `follow_up_days` cuenta desde el primer email (día 3 y día 7). Si nadie responde, `close_after_days` después del
+# último envío el lead pasa a LOST ("sin_respuesta").
 sequences:
   email:
     follow_up_days: [3, 7]
+    close_after_days: 7
+
+# Reputación de la cuenta de envío: con más rebotes definitivos que este máximo en 24 horas, el email se pausa solo.
+reputation:
+  max_bounces_per_day: 3
 
 # Un mismo negocio no recibe mensajes por más de este número de canales en total.
 max_channels_per_lead: 2

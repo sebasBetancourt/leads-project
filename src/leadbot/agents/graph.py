@@ -10,6 +10,10 @@ así cada lead es una ejecución independiente que se puede reintentar sola.
 Volver a redactar (REHACER en Sheets) usa un grafo corto que reutiliza la investigación guardada:
 
     draft_messages ─► save ─► END
+
+Los seguimientos (F3) usan otro grafo corto, también sobre la investigación guardada:
+
+    draft_follow_up ─► save_follow_up ─► END
 """
 
 from langgraph.graph import END, StateGraph
@@ -52,4 +56,15 @@ def build_redraft_graph(tools: dict[str, Tool], *, dry_run: bool = False):
     graph.set_entry_point("draft_messages")
     graph.add_edge("draft_messages", "save")
     graph.add_edge("save", END)
+    return graph.compile()
+
+
+def build_follow_up_graph(*, dry_run: bool = False):
+    nodes = LeadAgentNodes({}, dry_run=dry_run)
+    graph = StateGraph(AgentState)
+    graph.add_node("draft_follow_up", nodes.draft_follow_up)
+    graph.add_node("save_follow_up", nodes.save_follow_up)
+    graph.set_entry_point("draft_follow_up")
+    graph.add_edge("draft_follow_up", "save_follow_up")
+    graph.add_edge("save_follow_up", END)
     return graph.compile()

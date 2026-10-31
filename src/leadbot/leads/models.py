@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, Enum, ForeignKey, Index, String, Text, UniqueConstraint, func, text
+from sqlalchemy import JSON, BigInteger, Enum, ForeignKey, Index, String, Text, UniqueConstraint, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from leadbot.core.db import Base
@@ -54,6 +54,7 @@ class ContactChannel(TimestampMixin, Base):
     value: Mapped[str] = mapped_column(String(500))  # email, +57..., URL del perfil
     source: Mapped[str] = mapped_column(String(64))  # gmaps | website | manual
     verified: Mapped[bool] = mapped_column(default=False)
+    invalid: Mapped[bool] = mapped_column(default=False, server_default="false")  # rebotó: no se vuelve a usar
 
     company: Mapped[Company] = relationship(back_populates="contacts")
 
@@ -103,6 +104,8 @@ class Message(TimestampMixin, Base):
     reviewer_notes: Mapped[str | None] = mapped_column(Text)  # tus comentarios desde Sheets
     scheduled_for: Mapped[datetime | None]
     sent_at: Mapped[datetime | None]
+    external_id: Mapped[str | None] = mapped_column(String(255), unique=True)  # Message-ID del email, antes de enviar
+    reply_at: Mapped[datetime | None]  # cuándo respondió el destinatario
     error: Mapped[str | None] = mapped_column(Text)
 
     company: Mapped[Company] = relationship(back_populates="messages")
@@ -158,3 +161,34 @@ class Job(Base):
     locked_at: Mapped[datetime | None]
     last_error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class RuntimeFlag(Base):
+    """Interruptores que se cambian sin reiniciar el worker (pestaña Control de Sheets). El .env manda sobre ellos."""
+
+    __tablename__ = "runtime_flags"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)  # pause_all, pause_email...
+    value: Mapped[str] = mapped_column(String(255))
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+
+class MailCursor(Base):
+    """Hasta qué correo de la bandeja de entrada ya se leyó (UID de IMAP), para no procesar dos veces."""
+
+    __tablename__ = "mail_cursor"
+
+    folder: Mapped[str] = mapped_column(String(255), primary_key=True)
+    uidvalidity: Mapped[int | None] = mapped_column(BigInteger)
+    last_uid: Mapped[int] = mapped_column(BigInteger, default=0)
+
+
+class Heartbeat(Base):
+    """Última vez que corrió cada tarea del worker: de aquí salen el healthcheck y las alertas."""
+
+    __tablename__ = "worker_heartbeats"
+
+    task: Mapped[str] = mapped_column(String(64), primary_key=True)
+    last_run: Mapped[datetime] = mapped_column(server_default=func.now())
+    ok: Mapped[bool] = mapped_column(default=True)
+    detail: Mapped[str | None] = mapped_column(Text)

@@ -43,7 +43,7 @@ Arranque: Santander (área metropolitana de Bucaramanga primero) y los sectores 
  [4] APROBACIÓN  sheets/         pestaña "Aprobación": editas, marcas APROBADO / REHACER / DESCARTAR
             ▼
  [5] OUTREACH    outreach/       guardrails (horario, tope diario, no contactar)
-       ├─ email: cola (SKIP LOCKED) ─► email_gmail, envío automático (F3)
+       ├─ email: cola (SKIP LOCKED) ─► sender ─► email_gmail, envío automático (F3, ADR 0007)
        └─ redes: channels/assisted.py arma el enlace del chat en Sheets ─► tú das clic,
                  envías y marcas ENVIADO (F4)
             ▼
@@ -61,11 +61,11 @@ Arranque: Santander (área metropolitana de Bucaramanga primero) y los sectores 
 | `discovery/` | Armar búsquedas y hablar con gosom | `core`, `leads`, `enrichment.phone` | gosom (servicio) |
 | `enrichment/` | Visitar webs, extraer contactos, normalizar teléfonos +57 | `core`, `leads` | fujiwarachoki/leadgen |
 | `tools/` | Herramientas que el agente decide usar: `knowledge_base`, `web_reader`, `web_search` | `core`, `enrichment` | kaymen99 (`src/tools/`) |
-| `agents/` | Grafo LangGraph por lead, prompts, salidas estructuradas | `core`, `tools`, `leads` | kaymen99 (`graph.py`, `nodes.py`, `state.py`) |
+| `agents/` | Grafo LangGraph por lead, prompts, salidas estructuradas, redacción de seguimientos | `core`, `tools`, `leads`, `outreach.queue` | kaymen99 (`graph.py`, `nodes.py`, `state.py`) |
 | `proposals/` | Propuesta en PDF por lead | `agents.schemas` | — |
-| `outreach/` | Adaptadores de canal, guardrails, cola, seguimientos | `core`, `leads` | AgentSDR (send guardrails, SKIP LOCKED, `PAUSE_*`) |
+| `outreach/` | Adaptadores de canal, guardrails, cola, envío, lectura de respuestas, pausas y alertas, agenda de seguimientos | `core`, `leads` | AgentSDR (send guardrails, SKIP LOCKED, `PAUSE_*`) |
 | `sheets/` | Sincronización Postgres ⇄ Google Sheets | `leads` | kaymen99 (`leads_loader/google_sheets.py`) |
-| `jobs/` | Scheduler del worker | todos | AgentSDR (scheduler único) |
+| `jobs/` | Scheduler del worker, latido y alertas | todos | AgentSDR (scheduler único) |
 | `cli.py` | Un comando por etapa | todos | — |
 
 **Regla de dependencias:** `core` no importa a nadie; `leads` solo a `core`; los canales de
@@ -105,8 +105,11 @@ Ver [`DATA_MODEL.md`](DATA_MODEL.md).
 docker-compose
 ├── postgres   :5432   datos
 ├── gmaps      :8080   gosom/google-maps-scraper:v1.18.1 (REST API + UI)
-├── worker             scheduler: discovery, enrichment, agente, Sheets, email
+├── worker             scheduler: discovery, enrichment, agente, Sheets, email, respuestas, seguimientos (healthcheck)
+├── backup             pg_dump diario a ./backups (7 copias)
 └── app (cli)          docker compose run --rm app leadbot <comando>
+
+Postgres y gosom solo escuchan en 127.0.0.1. Una sola instancia del worker (ADR 0003).
 
 Tu navegador o celular
 └── enlaces de la pestaña Aprobación (wa.me, ig.me, m.me): el envío por redes lo haces tú
@@ -121,7 +124,8 @@ Ver [ADR 0005](adr/0005-canales-redes-asistidos.md).
 | Ley 1581 (datos personales) | Solo datos públicos de negocios; línea de baja en cada mensaje; `suppressions` revisada antes de cada envío; `OPT_OUT` irreversible |
 | Secretos | `.env` y `credentials/` fuera de git; contraseña de aplicación de Gmail, nunca la principal |
 | Bloqueo de cuentas en redes | Modo asistido: ningún bot envía desde tus cuentas; tú das el clic. Topes diarios por canal en Sheets y mensajes distintos. |
-| Reputación del dominio/Gmail | Calentamiento progresivo (30 → 80/día), `List-Unsubscribe`, seguimientos limitados a 2 |
+| Reputación del dominio/Gmail | Calentamiento progresivo (30 → 80/día), `List-Unsubscribe`, seguimientos limitados a 2; el email se pausa solo si falla el login, se agota la cuota o hay más de 3 rebotes en 24 h |
+| Envíos duplicados | `Message-ID` guardado antes de enviar; un envío a medias nunca se reintenta solo, se reconcilia contra Enviados ([ADR 0007](adr/0007-envio-email-y-respuestas.md)) |
 | Alucinaciones del LLM | Salida estructurada validada; prompts prohíben inventar datos; aprobación humana |
 | Costos de IA | Solo se califican leads ENRICHED; tools devuelven texto recortado; modelo cambiable (por tarea); tokens y costo guardados por lead en `research` |
 | Prompt injection desde webs | El contenido de terceros va delimitado entre `<<< >>>` y marcado como datos; el agente no tiene tools que envíen nada |
@@ -133,7 +137,7 @@ Ver [ADR 0005](adr/0005-canales-redes-asistidos.md).
 | **F0** ✅ | Estructura, arquitectura, contratos, config, conocimiento, tests base | todos (esqueleto) |
 | **F1** ✅ | Leads reales en Sheets | `discovery`, `enrichment`, `leads.repository`, `sheets.push`, migraciones Alembic, `jobs`. Primera corrida (2026-10-30, Bucaramanga): 3 búsquedas, 48 negocios, 41 con canal de contacto. |
 | **F2** 🚧 | El agente califica y redacta; apruebas en Sheets | `tools`, `agents`, `sheets.pull_decisions`, `outreach.queue`. Código y pruebas listos (2026-10-30); falta la primera corrida real con Groq sobre los 41 leads de Bucaramanga. |
-| **F3** | Email con seguimientos y lectura de respuestas | `channels/email_gmail`, `outreach.queue`, `sequences` |
+| **F3** 🚧 | Email con seguimientos y lectura de respuestas | `channels/email_gmail`, `outreach.sender`, `outreach.replies`, `sequences`, `agents.followup`. Código y pruebas listos (2026-10-30, [ADR 0007](adr/0007-envio-email-y-respuestas.md), [sprint](sprints/F3.md)); falta la prueba con una cuenta de Gmail real. |
 | **F4** | WhatsApp, Instagram, Facebook, LinkedIn asistidos; descubrir leads directamente en Instagram y Facebook | `channels/assisted` (listo), columna "abrir chat" y ENVIADO en Sheets |
 | **F5** | Propuesta PDF y métricas | `proposals`, pestaña Métricas |
 

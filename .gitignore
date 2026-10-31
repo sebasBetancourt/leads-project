@@ -30,3 +30,6 @@ build/
 .vscode/
 .idea/
 .DS_Store
+
+# Respaldos de la base (docker compose: servicio backup)
+backups/
