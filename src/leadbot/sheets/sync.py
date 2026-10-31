@@ -5,7 +5,8 @@ Pestañas:
     Aprobación editable: mensaje (puedes reescribirlo), enlace para abrir el chat (redes, modo asistido),
                columna Decisión (APROBADO / REHACER / DESCARTAR) y Notas. Se lee de vuelta a Postgres.
     Respuestas editable: marcas a mano las respuestas de redes (REPLIED / MEETING / WON / LOST / OPT_OUT). (F4)
-    Métricas   solo lectura: enviados, respuestas y reuniones por canal, sector y ciudad. (F5)
+    Control    pausas del envío (editable, sin reiniciar el worker), alertas y estado de las tareas. (F3)
+    Métricas   solo lectura: enviados, respuestas, bajas y rebotes por día. (F3; por canal, sector y ciudad en F5)
 
 Regla de conflicto: Sheets solo puede cambiar las columnas editables. Todo lo demás se sobrescribe
 desde Postgres en cada sincronización.
@@ -15,23 +16,33 @@ se reescribe la pestaña (push) conservando lo editable que acaba de leerse. As�
 edición que todavía no había llegado a Postgres. Las filas ya decididas salen de la pestaña.
 """
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
 import gspread
 from gspread.utils import ValidationConditionType
 
+from leadbot.core.clock import from_db, utcnow
+from leadbot.core.config import Settings, get_settings
 from leadbot.core.db import session_scope
+from leadbot.jobs.heartbeat import all_heartbeats
 from leadbot.leads.approval import Decision, ReviewRow, ReviewStats, apply_review
+from leadbot.leads.metrics import daily_metrics, metrics_grid
 from leadbot.leads.models import Company, Message
 from leadbot.leads.repository import LeadRepository
 from leadbot.leads.status import Channel
+from leadbot.outreach import control
 from leadbot.outreach.channels.assisted import ASSISTED_CHANNELS
+from leadbot.outreach.guardrails import load_policy
+
+log = logging.getLogger(__name__)
 
 LEADS_TAB = "Leads"
 APPROVAL_TAB = "Aprobación"
 REPLIES_TAB = "Respuestas"
 METRICS_TAB = "Métricas"
+CONTROL_TAB = "Control"
 
 LEADS_COLUMNS = [
     "id",
@@ -190,11 +201,57 @@ def plan_approval_grid(
     return grid
 
 
+def parse_control(values: list[list[str]]) -> dict[str, bool]:
+    """Las pausas que dejaste escritas en la pestaña Control (clave en la columna A, valor en la B)."""
+    edits = {}
+    for row in values:
+        key, value = (_cell(row, 0).strip(), _cell(row, 1).strip())
+        if key in control.PAUSE_KEYS and value:
+            edits[key] = control.is_true(value)
+    return edits
+
+
+def control_grid(
+    flags: dict[str, str],
+    settings: Settings,
+    alerts: list[tuple[str, str, str]],
+    beats: list[tuple[str, str, str]],
+    synced_at: str,
+) -> list[list]:
+    """Contenido de la pestaña Control. La columna B es lo único editable."""
+    grid: list[list] = [
+        ["clave", "valor (TRUE pausa)", "efectivo", "nota"],
+        *[
+            [
+                key,
+                "TRUE" if control.is_true(flags.get(key)) else "FALSE",
+                "PAUSADO"
+                if settings.pause_all or control.env_forced(settings, key) or control.is_true(flags.get(key))
+                else "activo",
+                "forzado por .env: no se quita desde aquí" if control.env_forced(settings, key) else "",
+            ]
+            for key in control.PAUSE_KEYS
+        ],
+        [],
+        ["ALERTAS RECIENTES", "", "", ""],
+        ["fecha", "código", "detalle", ""],
+        *([[date, code, text, ""] for date, code, text in alerts] or [["sin alertas", "", "", ""]]),
+        [],
+        ["TAREAS DEL WORKER", "", "", ""],
+        ["tarea", "última corrida", "estado", ""],
+        *([[task, when, status, ""] for task, when, status in beats] or [["sin latidos todavía", "", "", ""]]),
+        [],
+        ["última sincronización", synced_at, "", "si esta hora es vieja, el worker está caído"],
+    ]
+    return grid
+
+
 @dataclass
 class SyncStats:
     leads: int = 0
     pending: int = 0
     review: ReviewStats | None = None
+    pauses_changed: int = 0
 
 
 class SheetsSync:
@@ -266,9 +323,61 @@ class SheetsSync:
         tab.format(f"{message_col}2:{message_col}{MAX_ROWS}", {"wrapStrategy": "WRAP", "verticalAlignment": "TOP"})
         tab.format("A1:M1", {"textFormat": {"bold": True}})
 
+    def sync_control(self) -> int:
+        """Pausas de Sheets -> Postgres; pausas, alertas y latidos -> Sheets. Devuelve cuántas pausas cambiaron."""
+        tab = self._tab(CONTROL_TAB, 4)
+        values = tab.get_all_values()
+        first_time = not values
+        edits = parse_control(values)
+        changed = 0
+        with session_scope() as session:
+            current = control.flags(session)
+            for key, wanted in edits.items():
+                if control.is_true(current.get(key)) != wanted and (key in current or wanted):
+                    control.set_flag(session, key, wanted)
+                    changed += 1
+                    log.warning("Control: %s -> %s (desde Sheets)", key, wanted)
+            flags = control.flags(session)
+            alerts = control.recent_alerts(session)
+        beats = [
+            (b.task, from_db(b.last_run).strftime("%Y-%m-%d %H:%M UTC"), "ok" if b.ok else f"FALLÓ: {b.detail or ''}")
+            for b in all_heartbeats()
+        ]
+        grid = control_grid(flags, get_settings(), alerts, beats, utcnow().strftime("%Y-%m-%d %H:%M UTC"))
+        tab.clear()
+        tab.update(grid, "A1", raw=True)
+        if first_time:
+            tab.freeze(rows=1)
+            tab.format("A1:D1", {"textFormat": {"bold": True}})
+            tab.add_validation(
+                f"B2:B{len(control.PAUSE_KEYS) + 1}",
+                ValidationConditionType.one_of_list,
+                ["TRUE", "FALSE"],
+                showCustomUi=True,
+                inputMessage="TRUE pausa ese canal; FALSE lo reactiva",
+            )
+        return changed
+
+    def push_metrics(self) -> None:
+        with session_scope() as session:
+            grid = metrics_grid(daily_metrics(session, utcnow(), load_policy().timezone))
+        tab = self._tab(METRICS_TAB, 6)
+        tab.clear()
+        tab.update(grid, "A1", raw=True)
+        tab.freeze(rows=1)
+
     def sync(self) -> SyncStats:
         """Lo que corre el worker cada 5 minutos: primero tus decisiones, después la vista."""
         review = self.pull_decisions()
         pending = self.push_approval(review.invalid)
         leads = self.push()
-        return SyncStats(leads=leads, pending=pending, review=review)
+        stats = SyncStats(leads=leads, pending=pending, review=review)
+        # Control y Métricas no deben frenar la aprobación si fallan (por ejemplo, un límite de la API de Sheets).
+        for step in ("sync_control", "push_metrics"):
+            try:
+                result = getattr(self, step)()
+                if step == "sync_control":
+                    stats.pauses_changed = result
+            except Exception:
+                log.exception("Sheets: falló %s", step)
+        return stats
