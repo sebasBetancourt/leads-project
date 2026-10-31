@@ -22,10 +22,10 @@ NOW = datetime(2026, 11, 5, 10, 0, tzinfo=UTC)
 
 
 def eml(name: str, **replace: str):
-    raw = (FIXTURES / name).read_bytes().decode("utf-8")  # conserva los
-
+    """Carga una fixture .eml. Según el sistema, git la deja con LF o CRLF: se normaliza a LF."""
+    raw = (FIXTURES / name).read_bytes().decode("utf-8").replace("\r\n", "\n")
     for old, new in replace.items():
-        raw = raw.replace(old, new)
+        raw = raw.replace(old.replace("\r\n", "\n"), new)
     return parse_email(1, raw.encode("utf-8"))
 
 
