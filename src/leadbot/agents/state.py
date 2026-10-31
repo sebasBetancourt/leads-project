@@ -31,6 +31,17 @@ class MessageDraft(BaseModel):
     flags: list[str] = []
 
 
+class FollowUpContext(TypedDict):
+    """Un seguimiento por redactar: a quién, qué paso y qué se le escribió antes en el mismo hilo."""
+
+    step: int
+    contact_id: int
+    recipient: str
+    subject: str  # "Re: <asunto del primer mensaje>": lo arma el código, no el modelo
+    previous: list[str]  # cuerpos de los mensajes anteriores, del más viejo al más nuevo
+    redo_message_id: int | None
+
+
 class AgentState(TypedDict, total=False):
     lead: LeadContext
     research_notes: Annotated[list[str], add]  # cada nodo de investigación agrega aquí
@@ -42,5 +53,6 @@ class AgentState(TypedDict, total=False):
     research_id: int | None
     redraft_channels: list[Channel]
     feedback: list[str]
+    follow_up: FollowUpContext  # solo en el grafo de seguimientos
     proposal_path: str | None
     error: str | None

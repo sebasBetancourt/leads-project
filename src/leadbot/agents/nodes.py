@@ -47,6 +47,12 @@ CHANNEL_RULES = {
 }
 
 
+FOLLOW_UP_HINTS = {
+    False: "Aporta un ángulo nuevo en una frase (un beneficio concreto para SU negocio); no repitas el primer mensaje.",
+    True: "Es el último mensaje: cierra con cortesía, deja la puerta abierta y no insistas más.",
+}
+
+
 def untrusted(label: str, text: str) -> str:
     """Delimita contenido de terceros para que el modelo lo trate como datos (prompt injection)."""
     return f"{label}:\n<<<\n{text.replace('<<<', '').replace('>>>', '')}\n>>>"
@@ -254,7 +260,7 @@ class LeadAgentNodes:
         return {"drafts": drafts, "usage": usage}
 
     def _draft_one(
-        self, prompt: str, channel: Channel, sources: str, usage: list[dict]
+        self, prompt: str, channel: Channel, sources: str, usage: list[dict], *, fixed_subject: str | None = None
     ) -> tuple[DraftedMessage, list[str]]:
         """Redacta, revisa en código y, si hay alertas, pide una corrección (una sola vez)."""
         flags: list[str] = []
@@ -265,6 +271,8 @@ class LeadAgentNodes:
             result = llm.complete_structured(SYSTEM_DRAFT, prompt, DraftedMessage, task="draft", temperature=0.7)
             usage.append(asdict(result.usage))
             draft = result.value
+            if fixed_subject is not None:
+                draft.subject = fixed_subject
             draft.body = ensure_opt_out(draft.body)
             flags = check_message(
                 channel, draft.subject, draft.body, sources=sources, max_chars=self._max_chars(channel)
@@ -272,6 +280,63 @@ class LeadAgentNodes:
             if not flags:
                 break
         return draft, flags
+
+    def draft_follow_up(self, state: AgentState) -> AgentState:
+        """Seguimiento por email en el mismo hilo: reutiliza la investigación guardada, sin buscar nada nuevo."""
+        lead, q, fu = state["lead"], state["qualification"], state["follow_up"]
+        case = self.cases.get(q.case_study or "")
+        case_text = f"{case.name} ({case.url})\n{case.body}" if case else "Ninguno: no menciones casos."
+        research = "\n\n".join(state.get("research_notes", []))
+        previous = "\n\n".join(f"Mensaje {i}:\n{text}" for i, text in enumerate(fu["previous"]))
+        sources = f"{research}\n{case_text}\n{self._lead_text(state)}\n{previous}"
+        feedback = state.get("feedback") or []
+        feedback_text = (
+            "\n## Correcciones del revisor (aplícalas todas)\n" + "\n".join(f"- {f}" for f in feedback)
+            if feedback
+            else ""
+        )
+        last = fu["step"] >= len(self.limits["sequences"]["email"]["follow_up_days"])
+        prompt = (
+            (PROMPTS_DIR / "follow_up.md")
+            .read_text(encoding="utf-8")
+            .format(
+                step=fu["step"],
+                sender_name=get_settings().sender_name,
+                lead_name=lead["name"],
+                city=lead["city"],
+                qualification=f"{q.summary}\nNecesidades: {'; '.join(q.needs)}\nPresencia digital: {q.presence.notes}",
+                research_notes=research or "Sin investigación.",
+                case_study=case_text,
+                previous=previous,
+                step_hint=FOLLOW_UP_HINTS[last],
+                feedback=feedback_text,
+            )
+        )
+        usage: list[dict] = []
+        draft, flags = self._draft_one(prompt, Channel.EMAIL, sources, usage, fixed_subject=fu["subject"])
+        message = MessageDraft(
+            channel=Channel.EMAIL, recipient=fu["recipient"], subject=fu["subject"], body=draft.body, flags=flags
+        )
+        return {"drafts": [message], "usage": usage}
+
+    def save_follow_up(self, state: AgentState) -> AgentState:
+        """Guarda el seguimiento en PENDING_APPROVAL. El lead sigue en CONTACTED."""
+        if self.dry_run:
+            return {}
+        usage = state.get("usage", [])
+        fu = state["follow_up"]
+        with session_scope() as session:
+            LeadRepository(session).save_follow_up(
+                company_id=state["lead"]["company_id"],
+                contact_id=fu["contact_id"],
+                step=fu["step"],
+                draft=state["drafts"][0],
+                research_id=state["research_id"],
+                tokens=sum(u["prompt_tokens"] + u["completion_tokens"] for u in usage),
+                cost_usd=sum(u["cost_usd"] for u in usage),
+                redo_message_id=fu["redo_message_id"],
+            )
+        return {}
 
     # --- Persistencia --------------------------------------------------------------------
 
